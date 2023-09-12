@@ -1,2 +1,2 @@
-__all__ = ['augmentation', 'dataloader', 'transform', 'sketch_simplification']
+__all__ = ['augmentation', 'dataloader', 'transform']
 from . import *

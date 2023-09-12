@@ -106,31 +106,31 @@ class Master(Base):
 
 class LeftEye(Master):
     def __init__(self, encoder=True, decoder=True):
-        self.part = (108, 126, 128)
+        self.part = (int(108), int(126), int(128))
         self.prefix = 'left_eye'
         super().__init__(self.part, self.prefix, encoder, decoder)
     
 class RightEye(Master):
     def __init__(self, encoder=True, decoder=True):
-        self.part = (255, 126, 128)
+        self.part = (int(255), int(126), int(128))
         self.prefix = 'right_eye'
         super().__init__(self.part, self.prefix, encoder, decoder)
 
 class Nose(Master):
     def __init__(self, encoder=True, decoder=True):
-        self.part = (182, 232, 160)
+        self.part = (int(182), int(232), int(160))
         self.prefix = 'nose'
         super().__init__(self.part, self.prefix, encoder, decoder)
     
 class Mouth(Master):
     def __init__(self, encoder=True, decoder=True):
-        self.part = (169, 301, 192)
+        self.part = (int(169), int(301), int(192))
         self.prefix = 'mouth'
         super().__init__(self.part, self.prefix, encoder, decoder)
         
 class Background(Master):
     def __init__(self, encoder=True, decoder=True):
-        self.part = (0, 0, 512)
+        self.part = (0, 0, int(512)) 
         self.prefix = 'background'
         super().__init__(self.part, self.prefix, encoder, decoder)
 

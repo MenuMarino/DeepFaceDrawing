@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from . import augmentation as Aug
 from . import transform as T
-from . import sketch_simplification
+#from . import sketch_simplification
 
 class dataset(Dataset):
     
@@ -46,38 +46,38 @@ simplificator = None
 
 def load_one_sketch(path, augmentation=False, simplify=False, device='cpu'):
     sketch = Image.open(path)
-    if simplify:
-        global simplificator
-        if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
-        sketch = simplificator.simplify(sketch)
-    if augmentation:
-        sketch = Aug.random_erase(sketch)
-        sketch = Aug.random_affine([sketch])[0]
+    # if simplify:
+    #     global simplificator
+    #     # if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
+    #     sketch = simplificator.simplify(sketch)
+    # if augmentation:
+    #     sketch = Aug.random_erase(sketch)
+    #     sketch = Aug.random_affine([sketch])[0]
     sketch = T.transform_sketch(sketch)
     return sketch
 
 def load_one_photo(path, augmentation=False, simplify=False, device='cpu'):
     photo = Image.open(path)
-    if simplify:
-        global simplificator
-        if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
-        photo = simplificator.simplify(photo)
-    if augmentation:
-        photo = Aug.random_affine([photo])[0]
+#    if simplify:
+#        global simplificator
+#        if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
+#        photo = simplificator.simplify(photo)
+#    if augmentation:
+#        photo = Aug.random_affine([photo])[0]
     photo = T.transform_photo(photo)
     return photo
 
 def load_one_sketch_photo(path_sketch, path_photo, augmentation=False, simplify=False, device='cpu'):
     sketch = Image.open(path_sketch)
     photo = Image.open(path_photo)
-    if simplify:
-        global simplificator
-        if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
-        sketch = simplificator.simplify(sketch)
-        photo = simplificator.simplify(photo)
-    if augmentation:
-        sketch = Aug.random_erase(sketch)
-        sketch, photo = Aug.random_affine([sketch, photo])
+#    if simplify:
+#        global simplificator
+#        if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
+#        sketch = simplificator.simplify(sketch)
+#        photo = simplificator.simplify(photo)
+#    if augmentation:
+#        sketch = Aug.random_erase(sketch)
+#        sketch, photo = Aug.random_affine([sketch, photo])
     sketch = T.transform_sketch(sketch)
     photo  = T.transform_photo(photo)
     return sketch, photo

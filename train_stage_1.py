@@ -41,7 +41,7 @@ def main(args):
     model = models.DeepFaceDrawing(
         CE=True, CE_encoder=True, CE_decoder=True,
         FM=False, FM_decoder=False,
-        IS=False, IS_generator=False, IS_discriminator=False,
+        IS=False, IS_generator=False, IS_discriminator=False, IS2=False,
         manifold=False
     )
 

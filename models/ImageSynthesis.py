@@ -62,7 +62,7 @@ class Discriminator(nn.Module):
 
 class Module(nn.Module):
     
-    def __init__(self, generator=True, discriminator=False):
+    def __init__(self, generator=True, discriminator=False, s_channel = 32):
         super().__init__()
         self.G = None
         self.D1 = None
@@ -70,7 +70,7 @@ class Module(nn.Module):
         self.D3 = None
         
         self.dimension = 512
-        self.spatial_channel = 32
+        self.spatial_channel = s_channel
         
         if generator:
             self.G = Generator(self.dimension, self.spatial_channel)
