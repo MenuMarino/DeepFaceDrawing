@@ -6,3 +6,5 @@ Dataset/*
 !Dataset/simplify.sh
 !Dataset/download_from_kaggle.sh
 person-face-sketches/
+kdtree.py
+*.pickle

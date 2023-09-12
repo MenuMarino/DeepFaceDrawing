@@ -1,6 +1,12 @@
+import numpy as np
 import torch
-import datasets, models, losses, utils
+import pickle
 from tqdm import tqdm
+from scipy.spatial import cKDTree
+import datasets, models, losses
+
+import warnings
+warnings.filterwarnings("ignore", message="TypedStorage is deprecated")
 
 def get_args_parser():
     import argparse
@@ -13,6 +19,7 @@ def get_args_parser():
     parser.add_argument('--output', type=str, default=None, help='Path to save weights.')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--comet', type=str, default=None, help='comet.ml API')
+    parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait before early stopping')
     parser.add_argument('--comet_log_image', type=str, default=None, help='Path to model input image to be inference and log the result to comet.ml. Skipped if --comet is not given.')
     args = parser.parse_args()
     return args
@@ -22,21 +29,11 @@ def validation_parser(args):
         if args.comet_log_image: print('args.comet_log_image will be skipped.')
     
 def main(args):
-    
+    best_loss = float('inf')
+    epochs_no_improve = 0
     device = torch.device(args.device)
+    all_points = []
     print(f'Device : {device}')
-    
-    if args.comet:
-        from comet_ml import Experiment
-        experiment = Experiment(
-            api_key=args.comet,
-            project_name="Deep Face Drawing: Training Stage 1",
-            workspace="xu-justin",
-            log_code=True
-        )
-        
-        if args.comet_log_image:
-            log_image_sketch = datasets.dataloader.load_one_sketch(args.comet_log_image).unsqueeze(0).to(device)
     
     model = models.DeepFaceDrawing(
         CE=True, CE_encoder=True, CE_decoder=True,
@@ -44,9 +41,6 @@ def main(args):
         IS=False, IS_generator=False, IS_discriminator=False, IS2=False,
         manifold=False
     )
-
-    if args.comet:
-        experiment.set_model_graph(model)
     
     if args.resume:
         model.load(args.resume, map_location=device)
@@ -62,7 +56,6 @@ def main(args):
     mse = losses.MSE()
         
     for epoch in range(args.epochs):
-        
         running_loss = {
             'loss_left_eye' : 0,
             'loss_right_eye' : 0,
@@ -73,7 +66,6 @@ def main(args):
         
         model.train()
         for sketches in tqdm(train_dataloader, desc=f'Epoch - {epoch+1} / {args.epochs}'):
-            
             iteration_loss = {
                 'loss_left_eye_it' : 0,
                 'loss_right_eye_it' : 0,
@@ -86,7 +78,13 @@ def main(args):
 
             sketches = sketches.to(device)
             patches = model.CE.crop(sketches)
-            repatches = model.CE.decode(model.CE.encode(patches))
+            points = model.CE.encode(patches)
+            all_points.extend(points['left_eye'].cpu().detach().numpy().tolist())
+            all_points.extend(points['right_eye'].cpu().detach().numpy())
+            all_points.extend(points['nose'].cpu().detach().numpy())
+            all_points.extend(points['mouth'].cpu().detach().numpy())
+            all_points.extend(points['background'].cpu().detach().numpy())
+            repatches = model.CE.decode(points)
             
             for key in model.components:
                 loss = mse.compute(repatches[key], patches[key])
@@ -97,9 +95,6 @@ def main(args):
                 
             for key, loss in iteration_loss.items():
                 running_loss[key[:-3]] += loss * len(sketches) / len(train_dataloader.dataset)
-            
-            if args.comet:
-                experiment.log_metrics(iteration_loss)
         
         if args.dataset_validation:
             validation_running_loss = {
@@ -113,7 +108,6 @@ def main(args):
             model.eval()
             with torch.no_grad():
                 for sketches in tqdm(validation_dataloader, desc=f'Validation Epoch - {epoch+1} / {args.epochs}'):
-                    
                     validation_iteration_loss = {
                         'val_loss_left_eye_it' : 0,
                         'val_loss_right_eye_it' : 0,
@@ -132,9 +126,16 @@ def main(args):
                         
                     for key, loss in validation_iteration_loss.items():
                         validation_running_loss[key[:-3]] += loss * len(sketches) / len(validation_dataloader.dataset)
-                    
-                    if args.comet:
-                        experiment.log_metrics(validation_iteration_loss)
+
+            avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
+            if avg_val_loss < best_loss:
+                best_loss = avg_val_loss
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve == args.patience:
+                    print("Early stopping!")
+                    break
         
         def print_dict_loss(dict_loss):
             for key, loss in dict_loss.items():
@@ -146,20 +147,14 @@ def main(args):
         if args.dataset_validation: print_dict_loss(validation_running_loss)
         print()
         
-        if args.comet:
-            experiment.log_metrics(running_loss, step=epoch+1)
-            if args.dataset_validation: experiment.log_metrics(validation_running_loss, step=epoch+1)
-            if args.comet_log_image:
-                log_image_patches = model.CE(log_image_sketch)
-                log_image_patches = utils.patches2PIL(log_image_patches)[0]
-                experiment.log_image(log_image_patches, step=epoch+1)
-        
         if args.output:
             model.save(args.output)
-            
-    if args.comet:
-        experiment.end()
-        
+    
+    combined_points = np.array(all_points)
+    tree = cKDTree(combined_points)
+    with open('./tree.pickle', 'wb') as f:
+        pickle.dump(tree, f)
+
 if __name__ == '__main__':
     args = get_args_parser()
     print(args)

@@ -14,6 +14,7 @@ def get_args_parser():
     parser.add_argument('--output', type=str, default=None, help='Path to save weights.')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--comet', type=str, default=None, help='comet.ml API')
+    parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait before early stopping')
     parser.add_argument('--comet_log_image', type=str, default=None, help='Path to model input image to be inference and log the result to comet.ml. Skipped if --comet is not given.')
     args = parser.parse_args()
     return args
@@ -30,28 +31,13 @@ def main(args):
     
     device = torch.device(args.device)
     print(f'Device : {device}')
-    
-    if args.comet:
-        from comet_ml import Experiment
-        experiment = Experiment(
-            api_key=args.comet,
-            project_name="Deep Face Drawing: Training Stage 2",
-            workspace="xu-justin",
-            log_code=True
-        )
-        
-        if args.comet_log_image:
-            log_image_sketch = datasets.dataloader.load_one_sketch(args.comet_log_image).unsqueeze(0).to(device)
-    
+
     model = models.DeepFaceDrawing(
         CE=True, CE_encoder=True, CE_decoder=False,
         FM=True, FM_decoder=True,
         IS=True, IS_generator=True, IS_discriminator=True, IS2=True,
         manifold=False
     )
-    
-    if args.comet:
-        experiment.set_model_graph(model)
 
     if args.resume:
         model.load(args.resume, map_location=device)
@@ -151,9 +137,6 @@ def main(args):
 
             for key, loss in iteration_loss.items():
                 running_loss[key[:-3]] = loss * len(sketches) / len(train_dataloader.dataset)
-            
-            if args.comet:
-                experiment.log_metrics(iteration_loss)
         
         if args.dataset_validation:
             validation_running_loss = {
@@ -208,10 +191,16 @@ def main(args):
                     
                     for key, loss in iteration_loss.items():
                         validation_running_loss[key[:-3]] = loss * len(sketches) / len(validation_dataloader.dataset)
-                    
-                    if args.comet:
-                        experiment.log_metrics(validation_iteration_loss)
                         
+            avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
+            if avg_val_loss < best_loss:
+                best_loss = avg_val_loss
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve == args.patience:
+                    print("Early stopping!")
+                    break
         def print_dict_loss(dict_loss):
             for key, loss in dict_loss.items():
                 print(f'Loss {key:12} : {loss:.6f}')
@@ -221,20 +210,9 @@ def main(args):
         print_dict_loss(running_loss)
         if args.dataset_validation: print_dict_loss(validation_running_loss)
         print()
-        
-        if args.comet:
-            experiment.log_metrics(running_loss, step=epoch+1)
-            if args.dataset_validation: experiment.log_metrics(validation_running_loss, step=epoch+1)
-            if args.comet_log_image:
-                log_image_fake = model(log_image_sketch)
-                log_image_fake = utils.stack.hstack([utils.convert.tensor2PIL(log_image_sketch[0]), utils.convert.tensor2PIL(log_image_fake[0])])
-                experiment.log_image(log_image_fake, step=epoch+1)
                 
         if args.output:
             model.save(args.output)
-    
-    if args.comet:
-        experiment.end()
         
 if __name__ == '__main__':
     args = get_args_parser()
