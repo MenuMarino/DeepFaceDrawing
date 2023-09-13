@@ -1,6 +1,9 @@
 import torch
-import datasets, models, losses, utils
+import datasets, models, losses
 from tqdm import tqdm
+
+import warnings
+warnings.filterwarnings("ignore", message="UserWarning")
 
 def get_args_parser():
     import argparse
@@ -141,7 +144,9 @@ def main(args):
         if args.dataset_validation:
             validation_running_loss = {
                 'val_loss_G' : 0,
-                'val_loss_D' : 0
+                'val_loss_D' : 0,
+                'val_loss_G2' : 0,
+                'val_loss_D2' : 0
             }
             
             model.eval()
@@ -176,9 +181,9 @@ def main(args):
                     loss_G2_BCE = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real2, dtype=torch.float).to(device)) for patch in patches], dtype=torch.float).sum()
                     loss_G2 = loss_perceptual + 10 * loss_G2_L1 + loss_G2_BCE
 
-                    patches = model.IS2.discriminate(spatial_map.detach(), fake_photos.detach())
+                    patches = model.IS2.discriminate(fake_photos.detach(), fake_photos2.detach())
                     loss_D2_fake = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_fake2, dtype=torch.float).to(device)) for patch in patches], dtype=torch.float).sum()
-                    patches = model.IS2.discriminate(spatial_map.detach(), photos.detach())
+                    patches = model.IS2.discriminate(fake_photos.detach(), photos.detach())
                     loss_D2_real = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real2, dtype=torch.float).to(device)) for patch in patches], dtype=torch.float).sum()
                     loss_D2 = loss_D2_fake + loss_D2_real
 
@@ -188,8 +193,8 @@ def main(args):
                         'val_loss_G2_it' : loss_G2.item(),
                         'val_loss_D2_it' : loss_D2.item()
                     }
-                    
-                    for key, loss in iteration_loss.items():
+
+                    for key, loss in validation_iteration_loss.items():
                         validation_running_loss[key[:-3]] = loss * len(sketches) / len(validation_dataloader.dataset)
                         
             avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)

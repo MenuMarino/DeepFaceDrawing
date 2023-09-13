@@ -28,6 +28,13 @@ def validation_parser(args):
     if not args.comet:
         if args.comet_log_image: print('args.comet_log_image will be skipped.')
     
+
+def save_points(all_points):
+    combined_points = np.array(all_points)
+    tree = cKDTree(combined_points)
+    with open('./tree.pickle', 'wb') as f:
+        pickle.dump(tree, f)
+
 def main(args):
     best_loss = float('inf')
     epochs_no_improve = 0
@@ -56,6 +63,7 @@ def main(args):
     mse = losses.MSE()
         
     for epoch in range(args.epochs):
+        all_points = []
         running_loss = {
             'loss_left_eye' : 0,
             'loss_right_eye' : 0,
@@ -127,15 +135,6 @@ def main(args):
                     for key, loss in validation_iteration_loss.items():
                         validation_running_loss[key[:-3]] += loss * len(sketches) / len(validation_dataloader.dataset)
 
-            avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
-            if avg_val_loss < best_loss:
-                best_loss = avg_val_loss
-                epochs_no_improve = 0
-            else:
-                epochs_no_improve += 1
-                if epochs_no_improve == args.patience:
-                    print("Early stopping!")
-                    break
         
         def print_dict_loss(dict_loss):
             for key, loss in dict_loss.items():
@@ -149,11 +148,18 @@ def main(args):
         
         if args.output:
             model.save(args.output)
-    
-    combined_points = np.array(all_points)
-    tree = cKDTree(combined_points)
-    with open('./tree.pickle', 'wb') as f:
-        pickle.dump(tree, f)
+
+        avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
+        if avg_val_loss < best_loss:
+            best_loss = avg_val_loss
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve == args.patience:
+                print("Early stopping!")
+                break
+            
+    save_points(all_points)
 
 if __name__ == '__main__':
     args = get_args_parser()
