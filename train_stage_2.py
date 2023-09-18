@@ -32,6 +32,7 @@ def validation_parser(args):
     
 def main(args):
     
+    best_loss = float('inf')
     device = torch.device(args.device)
     print(f'Device : {device}')
 
@@ -204,6 +205,8 @@ def main(args):
             else:
                 epochs_no_improve += 1
                 if epochs_no_improve == args.patience:
+                    if args.output:
+                        model.save(args.output)
                     print("Early stopping!")
                     break
         def print_dict_loss(dict_loss):
