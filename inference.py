@@ -32,7 +32,7 @@ def main(args):
     model = models.DeepFaceDrawing(
         CE=True, CE_encoder=True, CE_decoder=False,
         FM=True, FM_decoder=True,
-        IS=True, IS_generator=True, IS_discriminator=False,
+        IS=True, IS_generator=True, IS_discriminator=False, IS2=True,
         manifold=args.manifold
     )
     model.load(args.weight)

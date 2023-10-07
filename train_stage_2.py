@@ -1,9 +1,11 @@
 import torch
-import datasets, models, losses
+import datasets, models, losses, utils
 from tqdm import tqdm
 
 import warnings
 warnings.filterwarnings("ignore", message="UserWarning")
+
+torch.autograd.set_detect_anomaly(True)
 
 def get_args_parser():
     import argparse
@@ -17,7 +19,6 @@ def get_args_parser():
     parser.add_argument('--output', type=str, default=None, help='Path to save weights.')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--comet', type=str, default=None, help='comet.ml API')
-    parser.add_argument('--patience', type=int, default=5, help='Number of epochs to wait before early stopping')
     parser.add_argument('--comet_log_image', type=str, default=None, help='Path to model input image to be inference and log the result to comet.ml. Skipped if --comet is not given.')
     args = parser.parse_args()
     return args
@@ -31,8 +32,6 @@ def validation_parser(args):
         if args.comet_log_image: print('args.comet_log_image will be skipped.')
     
 def main(args):
-    
-    best_loss = float('inf')
     device = torch.device(args.device)
     print(f'Device : {device}')
 
@@ -84,53 +83,51 @@ def main(args):
         
         model.train()
         for sketches, photos in tqdm(train_dataloader, desc=f'Epoch - {epoch+1} / {args.epochs}'):
-            
+
             sketches = sketches.to(device)
             photos = photos.to(device)
-            
+
             latents = model.CE.encode(model.CE.crop(sketches))
             spatial_map = model.FM.merge(model.FM.decode(latents))
             fake_photos = model.IS.generate(spatial_map)
-            
+            fake_photos_clone = fake_photos.detach().clone()
+
             optimizer_generator.zero_grad()
             loss_G_L1 = l1.compute(fake_photos, photos)
             loss_perceptual = perceptual.compute(fake_photos, photos)
             patches = model.IS.discriminate(spatial_map, fake_photos)
             loss_G_BCE = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
             loss_G = loss_perceptual + 10 * loss_G_L1 + loss_G_BCE
-            # loss_G.backward(retain_graph=True)
-            optimizer_generator.step()
-            
+
             optimizer_discriminator.zero_grad()
             patches = model.IS.discriminate(spatial_map.detach(), fake_photos.detach())
             loss_D_fake = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_fake, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
             patches = model.IS.discriminate(spatial_map.detach(), photos.detach())
             loss_D_real = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
             loss_D = loss_D_fake + loss_D_real
-            # loss_D.backward(retain_graph=True)
-            optimizer_discriminator.step()
-            
-            # Nuevo
-            fake_photos2 = model.IS2.generate(fake_photos)
+
+            fake_photos2 = model.IS2.generate(fake_photos_clone)
             optimizer_generator2.zero_grad()
             loss_G2_L1 = l1.compute(fake_photos2, photos)
             loss_perceptual = perceptual.compute(fake_photos2, photos)
-            patches = model.IS2.discriminate(fake_photos, fake_photos2)
+            patches = model.IS2.discriminate(fake_photos_clone, fake_photos2)
             loss_G2_BCE = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real2, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
             loss_G2 = loss_perceptual + 10 * loss_G2_L1 + loss_G2_BCE
-            # loss_G2.backward(retain_graph=True)
-            optimizer_generator2.step()
-            
+
             optimizer_discriminator2.zero_grad()
-            patches = model.IS2.discriminate(fake_photos.detach(), fake_photos2.detach())
+            patches = model.IS2.discriminate(fake_photos_clone.detach(), fake_photos2.detach())
             loss_D2_fake = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_fake2, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
-            patches = model.IS2.discriminate(fake_photos.detach(), photos.detach())
+            patches = model.IS2.discriminate(fake_photos_clone.detach(), photos.detach())
             loss_D2_real = torch.tensor([bce.compute(patch, torch.full(patch.shape, label_real2, dtype=torch.float, requires_grad=True).to(device)) for patch in patches], dtype=torch.float, requires_grad=True).sum()
             loss_D2 = loss_D2_fake + loss_D2_real
-            # loss_D2.backward(retain_graph=True)
-            optimizer_discriminator2.step()
+
             (loss_G + loss_G2).backward()
+            optimizer_generator.step()
+            optimizer_generator2.step()
+
             (loss_D + loss_D2).backward()
+            optimizer_discriminator.step()
+            optimizer_discriminator2.step()
 
             iteration_loss = {
                 'loss_G_it' : loss_G.item(),
@@ -198,17 +195,17 @@ def main(args):
                     for key, loss in validation_iteration_loss.items():
                         validation_running_loss[key[:-3]] = loss * len(sketches) / len(validation_dataloader.dataset)
                         
-            avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
-            if avg_val_loss < best_loss:
-                best_loss = avg_val_loss
-                epochs_no_improve = 0
-            else:
-                epochs_no_improve += 1
-                if epochs_no_improve == args.patience:
-                    if args.output:
-                        model.save(args.output)
-                    print("Early stopping!")
-                    break
+            # avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
+            # if avg_val_loss < best_loss:
+            #     best_loss = avg_val_loss
+            #     epochs_no_improve = 0
+            # else:
+            #     epochs_no_improve += 1
+            #     if epochs_no_improve == args.patience:
+            #         if args.output:
+            #             model.save(args.output)
+            #         print("Early stopping!")
+            #         break
         def print_dict_loss(dict_loss):
             for key, loss in dict_loss.items():
                 print(f'Loss {key:12} : {loss:.6f}')

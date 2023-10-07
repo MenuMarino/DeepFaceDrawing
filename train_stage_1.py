@@ -149,15 +149,15 @@ def main(args):
         if args.output:
             model.save(args.output)
 
-        avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
-        if avg_val_loss < best_loss:
-            best_loss = avg_val_loss
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-            if epochs_no_improve == args.patience:
-                print("Early stopping!")
-                break
+        # avg_val_loss = sum(validation_running_loss.values()) / len(validation_running_loss)
+        # if avg_val_loss < best_loss:
+        #     best_loss = avg_val_loss
+        #     epochs_no_improve = 0
+        # else:
+        #     epochs_no_improve += 1
+        #     if epochs_no_improve == args.patience:
+        #         print("Early stopping!")
+        #         break
             
     save_points(all_points)
 

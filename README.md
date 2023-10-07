@@ -27,6 +27,15 @@ python train_stage_2.py \
     --resume_CE weight/weight/DeepFaceDrawing/CE/ \
     --output weight/weight/DeepFaceDrawing/ \
     --device cuda
+
+python train_stage_2.py \
+    --dataset person-face-sketches/train/ \
+    --dataset_validation person-face-sketches/val/ \
+    --batch_size 2 \
+    --epochs 13 \
+    --resume weight/weight/DeepFaceDrawing/ \
+    --output weight/weight/DeepFaceDrawing/ \
+    --device cuda
 ```
 
 ## CLI Inference
@@ -38,8 +47,8 @@ The following commands will inference `images.jpg` and then saved the result to 
 ```
 python inference.py \
     --weight weight/weight/DeepFaceDrawing/ \
-    --image images.jpg \
-    --output output.jpg \
+    --image testing/20.jpg \
+    --output testing/20-real.jpg \
     --device cuda
 ```
 

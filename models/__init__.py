@@ -26,7 +26,7 @@ class DeepFaceDrawing(nn.Module):
     def forward(self, x):
         x = self.CE.crop(x)
         x = self.CE.encode(x)
-        if self.MN: raise NotImplementedError
+        if self.MN: raise NotImplementedError # TODO: Aca es el manifold
         x = self.FM.decode(x)
         x = self.FM.merge(x)
         x = self.IS.generate(x)
