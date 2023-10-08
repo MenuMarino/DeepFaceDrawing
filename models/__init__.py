@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 
-__all__ = ['ComponentEmbedding', 'FeatureMapping', 'ImageSynthesis', 'block', 'autoencoder']
+__all__ = ['ComponentEmbedding', 'FeatureMapping', 'ImageSynthesis', 'block', 'autoencoder', 'ManifoldProjection']
 from . import *
 
 class DeepFaceDrawing(nn.Module):
@@ -21,17 +21,37 @@ class DeepFaceDrawing(nn.Module):
         if FM: self.FM = FeatureMapping.Module(decoder=FM_decoder)        
         if IS: self.IS = ImageSynthesis.Module(generator=IS_generator, discriminator=IS_discriminator)
         if IS2: self.IS2 = ImageSynthesis.Module(generator=IS_generator, discriminator=IS_discriminator, s_channel=3)
-        if manifold: raise NotImplementedError
+        if manifold: self.MN = ManifoldProjection.Module()
         
     def forward(self, x):
-        x = self.CE.crop(x)
-        x = self.CE.encode(x)
-        if self.MN: raise NotImplementedError # TODO: Aca es el manifold
-        x = self.FM.decode(x)
-        x = self.FM.merge(x)
-        x = self.IS.generate(x)
-        x = self.IS2.generate(x)
-        return x
+        if isinstance(x, list):
+            values = []
+            for val in x:
+                val = self.CE.crop(val)
+                val = self.CE.encode(val)
+                values.append(val)
+
+            combined_tensors = {}
+            for key in values[0].keys():
+                tensors_to_combine = [val[key] for val in values]
+                combined_tensors[key] = torch.stack(tensors_to_combine).mean(dim=0, keepdim=True).squeeze(1)
+                
+            
+            if self.MN: x = self.MN.project_dict(combined_tensors)
+            x = self.FM.decode(x if self.MN else combined_tensors)
+            x = self.FM.merge(x)
+            x = self.IS.generate(x)
+            x = self.IS2.generate(x)
+            return x
+        else:
+            x = self.CE.crop(x)
+            x = self.CE.encode(x)
+            if self.MN: x = self.MN.project_dict(x)
+            x = self.FM.decode(x)
+            x = self.FM.merge(x)
+            x = self.IS.generate(x)
+            x = self.IS2.generate(x)
+            return x
     
     path_dict = {
         'CE' : 'CE',
@@ -48,11 +68,11 @@ class DeepFaceDrawing(nn.Module):
         if self.FM: self.FM.save(self.get_path(path, 'FM'))
         if self.IS: self.IS.save(self.get_path(path, 'IS'))
         if self.IS2: self.IS2.save(self.get_path(path, 'IS2'))
-        if self.MN: raise NotImplementedError
+        # if self.MN: raise NotImplementedError
     
     def load(self, path, map_location=torch.device('cpu')):
         if self.CE: self.CE.load(self.get_path(path, 'CE'), map_location=map_location)
         if self.FM: self.FM.load(self.get_path(path, 'FM'), map_location=map_location)
         if self.IS: self.IS.load(self.get_path(path, 'IS'), map_location=map_location)
         if self.IS2: self.IS2.load(self.get_path(path, 'IS2'), map_location=map_location)
-        if self.MN: raise NotImplementedError
+        # if self.MN: raise NotImplementedError

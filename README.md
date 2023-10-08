@@ -49,7 +49,17 @@ python inference.py \
     --weight weight/weight/DeepFaceDrawing/ \
     --image testing/20.jpg \
     --output testing/20-real.jpg \
-    --device cuda
+    --device cuda \
+    --manifold
+```
+
+```
+python inference.py \
+    --weight weight/weight/DeepFaceDrawing/ \
+    --folder testing_folder/ \
+    --output testing_output_folder/ \
+    --device cuda \
+    --manifold
 ```
 
 **Folder of Images Inference**

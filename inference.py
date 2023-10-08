@@ -15,7 +15,12 @@ def get_args_parser():
     return args
 
 def inference(model, path_image, path_output, device, args):
-    image = datasets.dataloader.load_one_sketch(path_image, simplify=True, device=args.device).unsqueeze(0).to(device)
+    image = []
+    if isinstance(path_image, list):
+        for path in path_image:
+            image.append(datasets.dataloader.load_one_sketch(path, simplify=True, device=args.device).unsqueeze(0).to(device))
+    else:
+        image = datasets.dataloader.load_one_sketch(path_image, simplify=True, device=args.device).unsqueeze(0).to(device)
     print(f'Loaded image from {path_image}')
 
     with torch.no_grad():
@@ -44,10 +49,11 @@ def main(args):
     
     if args.folder:
         os.makedirs(args.output, exist_ok=True)
+        paths = []
         for file_name in os.listdir(args.folder):
-            path_image = os.path.join(args.folder, file_name)
-            path_output = os.path.join(args.output, file_name)
-            inference(model, path_image, path_output, device, args)
+            paths.append(os.path.join(args.folder, file_name))
+        path_output = os.path.join(args.output, 'result_noMP.jpg')
+        inference(model, paths, path_output, device, args)
     
 if __name__ == '__main__':
     args = get_args_parser()
