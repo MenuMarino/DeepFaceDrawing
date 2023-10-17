@@ -8,4 +8,4 @@ Dataset/*
 person-face-sketches/
 kdtree.py
 *.pickle
-testing/
+testing*/
