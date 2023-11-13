@@ -24,13 +24,13 @@ python train_stage_2.py \
     --dataset person-face-sketches/train/ \
     --dataset_validation person-face-sketches/val/ \
     --batch_size 2 \
-    --epochs 17 \
+    --epochs 10 \
     --resume weight/weight/DeepFaceDrawing/ \
     --output weight/weight/DeepFaceDrawing/ \
     --device cuda
 ```
 
-Epocas: 60
+Epocas: 90
 
 ## CLI Inference
 
@@ -42,7 +42,7 @@ The following commands will inference `images.jpg` and then saved the result to 
 python inference.py \
     --weight weight/weight/DeepFaceDrawing/ \
     --image testing/20.jpg \
-    --output testing/20-real-7.jpg \
+    --output testing/20-generated-2.jpg \
     --device cuda \
     --manifold
 ```
@@ -54,6 +54,16 @@ python inference.py \
     --output testing_output_folder/ \
     --device cuda \
     --manifold
+```
+
+```
+python inference2.py \
+    --weight weight/weight/DeepFaceDrawing/ \
+    --folder person-face-sketches/test/sketches/ \
+    --output person-face-sketches/test/generated-3-images/ \
+    --real_images person-face-sketches/test/photos/ \
+    --device cuda \
+    --generate
 ```
 
 **Folder of Images Inference**

@@ -45,14 +45,12 @@ def dataloader(path, batch_size, load_photo=True, shuffle=True, num_workers=4, a
 simplificator = None
 
 def load_one_sketch(path, augmentation=False, simplify=False, device='cpu'):
-    sketch = Image.open(path)
-    # if simplify:
-    #     global simplificator
-    #     # if not simplificator: simplificator = sketch_simplification.sketch_simplification(device=device)
-    #     sketch = simplificator.simplify(sketch)
-    # if augmentation:
-    #     sketch = Aug.random_erase(sketch)
-    #     sketch = Aug.random_affine([sketch])[0]
+    if isinstance(path, str):
+        sketch = Image.open(path)
+    elif isinstance(path, Image.Image):
+        sketch = path
+    else:
+        raise ValueError("Input must be a file path or a PIL.Image object")
     sketch = T.transform_sketch(sketch)
     return sketch
 
