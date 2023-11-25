@@ -6,18 +6,30 @@ from skimage.metrics import structural_similarity as ssim
 import scipy
 from PIL import Image
 
-def load_and_preprocess_image(image_path):
+COMPONENTS = {
+    'left_eye': (int(108), int(126), int(128)),
+    'right_eye': (int(255), int(126), int(128)),
+    'nose': (int(182), int(232), int(160)),
+    'mouth': (int(169), int(301), int(192)),
+    'background': (0, 0, int(512))
+}
+
+def load_and_preprocess_image(image_path, component = None):
     image = Image.open(image_path)
+    if component and component in COMPONENTS:
+        x, y, size = COMPONENTS[component]
+        crop_area = (x, y, x + size, y + size)
+        image = image.crop(crop_area)
     image = image.resize((299, 299))
     image = np.array(image)
     if image.shape[-1] == 4:
         image = image[..., :3]
     return preprocess_input(image)
 
-def calculate_fid(generated_folder, real_folder):
+def calculate_fid(generated_folder, real_folder, component):
     inception_model = InceptionV3(include_top=False, pooling='avg', input_shape=(299, 299, 3))
-    generated_images = [load_and_preprocess_image(os.path.join(generated_folder, img)) for img in os.listdir(generated_folder)]
-    real_images = [load_and_preprocess_image(os.path.join(real_folder, img)) for img in os.listdir(real_folder)]
+    generated_images = [load_and_preprocess_image(os.path.join(generated_folder, img), component) for img in os.listdir(generated_folder)]
+    real_images = [load_and_preprocess_image(os.path.join(real_folder, img), component) for img in os.listdir(real_folder)]
     
     gen_features = inception_model.predict(np.array(generated_images))
     real_features = inception_model.predict(np.array(real_images))
@@ -36,9 +48,9 @@ def calculate_fid(generated_folder, real_folder):
     fid = sum_sqrd_diff + np.trace(sigma_gen + sigma_real - 2*cov_mean)
     return fid
 
-def calculate_inception_score(generated_folder):
+def calculate_inception_score(generated_folder, component):
     inception_model = InceptionV3(include_top=True, input_shape=(299, 299, 3))
-    generated_images = [load_and_preprocess_image(os.path.join(generated_folder, img)) for img in os.listdir(generated_folder)]
+    generated_images = [load_and_preprocess_image(os.path.join(generated_folder, img), component) for img in os.listdir(generated_folder)]
     preds = inception_model.predict(np.array(generated_images))
     scores = []
     for part in np.array_split(preds, 10):

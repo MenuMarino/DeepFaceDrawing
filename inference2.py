@@ -20,16 +20,16 @@ def get_args_parser():
     return args
 
 FILENAME = 'metrics_3_images.csv'
+COMPONENT = None # 'left_eye' 'right_eye' 'nose' 'mouth' 'background' None
 
 def add_noise(img):
     noise = np.random.normal(0, 0.1, img.size)
     noisy_img = np.array(img) + noise
     return Image.fromarray(np.clip(noisy_img, 0, 255).astype(np.uint8))
 
-def calculate_metrics(generated_folder, real_folder):
-    fid = metrics.calculate_fid(generated_folder, real_folder)
-    is_score, _ = metrics.calculate_inception_score(generated_folder)
-    # ms_ssim_score = metrics.calculate_average_ms_ssim(generated_folder, real_folder)
+def calculate_metrics(generated_folder, real_folder, component):
+    fid = metrics.calculate_fid(generated_folder, real_folder, component)
+    is_score, _ = metrics.calculate_inception_score(generated_folder, component)
     return fid, is_score, 0
 
 def inference(model, sketch_folder, generated_folder, real_folder, device, args):
@@ -61,12 +61,12 @@ def inference(model, sketch_folder, generated_folder, real_folder, device, args)
         result.save(generated_path)
         # print(f'Saved result to {generated_path}')
     
-    fid, is_score, ms_ssim_score = calculate_metrics(generated_folder, real_folder)
+    fid, is_score, ms_ssim_score = calculate_metrics(generated_folder, real_folder, COMPONENT)
     
     with open(FILENAME, mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([80, fid, is_score])
-    print(f'Average Metrics - FID: {fid}, IS: {is_score}, MS-SSIM: {ms_ssim_score}')
+        writer.writerow([COMPONENT, fid, is_score])
+    # print(f'Average Metrics - FID: {fid}, IS: {is_score}, MS-SSIM: {ms_ssim_score}')
 
 def main(args):
     device = torch.device(args.device)
@@ -83,10 +83,10 @@ def main(args):
     model.eval()
     
     if args.folder and args.real_images:
-        if not os.path.exists(FILENAME):
-            with open(FILENAME, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['Epocas','FID (menos es mejor: 26.509)', 'IS (mayor es mejor: 2.317)'])
+        # if not os.path.exists(FILENAME):
+        #     with open(FILENAME, mode='w', newline='') as file:
+        #         writer = csv.writer(file)
+        #         writer.writerow(['Epocas','FID (menos es mejor: 26.509)', 'IS (mayor es mejor: 2.317)'])
         
         inference(model, args.folder, args.output, args.real_images, device, args)
     
